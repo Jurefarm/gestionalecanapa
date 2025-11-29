@@ -1,73 +1,112 @@
-# React + TypeScript + Vite
+# 🌿 Gestionale Canapa - Hemp Processing Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Version:** 1.0.0  
+**Status:** ✅ Production Ready  
+**Live:** https://gestionalecanapa.vercel.app
 
-Currently, two official plugins are available:
+## 📋 Descrizione
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Applicazione web completa per la gestione della lavorazione della canapa industriale. Sistema di tracciamento end-to-end dalle materie prime al prodotto finito, con integrazione database cloud Supabase.
 
-## React Compiler
+## ⚙️ Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React 18 + TypeScript + Vite
+- **Styling:** Tailwind CSS (Dark Theme)
+- **Database:** Supabase (PostgreSQL)
+- **Backend:** Supabase REST API + RLS
+- **Hosting:** Vercel (Auto-deploy from GitHub)
+- **UI Components:** lucide-react icons
+- **State Management:** React Context + localStorage
 
-## Expanding the ESLint configuration
+## 🏭 Funzionalità Principali
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Sale di Lavorazione (Stages)
+1. **Ingresso Grezzo** - Registrazione materie prime
+2. **Sala Sbocciolo** - Decortificazione fiori
+3. **Sala Beta** - Selezione e calibratura
+4. **Sala Rifinitura** - Confezione finale
+5. **Magazzino Finiti** - Stoccaggio prodotti
+6. **Contabilità** - Gestione economica
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Funzionalità Database
+- ✅ Salvataggio automatico su Supabase
+- ✅ Tracciamento per lotto/varietà
+- ✅ Bilancio peso ingresso/uscita (tolleranza ±2%)
+- ✅ Categorizzazione per tipo
+- ✅ Audit log completo
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Anagrafiche
+- Gestione fornitori
+- Gestione varietà canapa
+- Gestione prodotti finiti
+- Gestione utenti operatori
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 📁 Struttura Progetto
+
+```
+src/
+├── pages/              # Pagine dell'app
+├── components/         # Componenti riutilizzabili
+├── context/            # React Context globale
+├── lib/                # Utility (supabase, auth, config)
+├── data/               # Dati statici
+├── types.ts            # Definizioni TypeScript
+└── index.css           # Stili
+
+sql/
+└── processing_runs.sql # Schema Supabase
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🚀 URL Live
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+🌐 **App Online:** https://gestionalecanapa.vercel.app  
+📊 **GitHub:** https://github.com/Jurefarm/gestionalecanapa  
+🗄️ **Database:** Supabase (wrmvrsulhxmplptxveem)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🔄 Deployment Flow
+
 ```
+Local Changes
+     ↓
+git push origin main
+     ↓
+GitHub
+     ↓
+Vercel (Auto-trigger)
+     ↓
+https://gestionalecanapa.vercel.app (Live Update)
+```
+
+## 🛠️ Sviluppo Locale
+
+```bash
+npm install      # Installa dipendenze
+npm run dev      # Dev server (http://localhost:5173)
+npm run build    # Build produzione
+npm run preview  # Anteprima build
+```
+
+## 📦 Dipendenze
+
+- react@^18
+- @supabase/supabase-js@^2
+- lucide-react
+- tailwindcss@^3
+- typescript@^5
+- vite@^5
+
+## ✅ Completamento
+
+- ✅ Setup React + TypeScript + Vite
+- ✅ Pagine complete (6 sale + Dashboard)
+- ✅ Context globale + localStorage
+- ✅ Supabase integration completa
+- ✅ Database `processing_runs` con RLS
+- ✅ Tailwind dark theme
+- ✅ GitHub repository
+- ✅ Vercel auto-deploy
+- ✅ Production ready
+
+---
+
+**Updated:** 30 Nov 2025 | **Author:** Jurefarm | **License:** Proprietario
