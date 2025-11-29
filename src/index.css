@@ -1,0 +1,411 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #0f172a;
+  color: #e5e7eb;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.app-header {
+  padding: 16px 0;
+  border-bottom: 1px solid #1e293b;
+  margin-bottom: 12px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.tab-button {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  border: 1px solid #1f2937;
+  background-color: #020617;
+  color: #e5e7eb;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  background-color: #111827;
+}
+
+.tab-button-active {
+  background-color: #059669;
+  border-color: #059669;
+  color: #fff;
+}
+
+.app-main {
+  background-color: #020617;
+  border-radius: 16px;
+  padding: 24px;
+  min-height: 400px;
+}
+
+.app-main h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.app-main p {
+  margin: 0;
+  font-size: 14px;
+  color: #d1d5db;
+}
+
+/* ===== SALA RIFINITURA ===== */
+
+.finishing-container {
+  width: 100%;
+}
+
+.finishing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+@media (max-width: 1024px) {
+  .finishing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.finishing-form-section,
+.finishing-history-section {
+  padding: 16px;
+  background-color: #111827;
+  border-radius: 12px;
+  border: 1px solid #1f2937;
+}
+
+.finishing-form-section h3,
+.finishing-history-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 16px;
+  color: #e5e7eb;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #d1d5db;
+}
+
+.required {
+  color: #ef4444;
+  margin-left: 4px;
+}
+
+.form-select,
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background-color: #020617;
+  color: #e5e7eb;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.form-select:focus,
+.form-input:focus {
+  outline: none;
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background-color: #020617;
+  color: #e5e7eb;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.form-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.flex-0 {
+  flex: 0;
+  width: auto;
+}
+
+.batch-info-box {
+  padding: 12px;
+  background-color: #020617;
+  border-left: 3px solid #059669;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.batch-info-box p {
+  margin: 4px 0;
+  color: #d1d5db;
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #059669;
+  color: #fff;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #047857;
+}
+
+.btn-secondary {
+  background-color: #374151;
+  color: #e5e7eb;
+}
+
+.btn-secondary:hover {
+  background-color: #4b5563;
+}
+
+.btn-delete {
+  background-color: #dc2626;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.btn-delete:hover {
+  background-color: #b91c1c;
+}
+
+.products-list {
+  margin-top: 12px;
+  background-color: #020617;
+  border-radius: 6px;
+  border: 1px solid #374151;
+  padding: 0;
+}
+
+.product-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #374151;
+}
+
+.product-item:last-child {
+  border-bottom: none;
+}
+
+.product-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-info strong {
+  color: #e5e7eb;
+  font-size: 14px;
+}
+
+.product-qty {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.weight-balance {
+  padding: 12px;
+  border-radius: 6px;
+  margin: 12px 0;
+  font-size: 13px;
+  border-left: 3px solid #f59e0b;
+}
+
+.weight-balance p {
+  margin: 4px 0;
+  color: #d1d5db;
+}
+
+.weight-balance.balanced {
+  border-left-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.weight-balance.surplus {
+  border-left-color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.weight-balance.deficit {
+  border-left-color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.balance-indicator {
+  font-weight: 600;
+  margin-top: 8px !important;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  padding: 12px;
+  background-color: #020617;
+  border: 1px solid #374151;
+  border-radius: 6px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #374151;
+}
+
+.history-header strong {
+  color: #10b981;
+  font-size: 14px;
+}
+
+.history-id {
+  color: #6b7280;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+}
+
+.history-details {
+  font-size: 12px;
+}
+
+.history-details p {
+  margin: 6px 0;
+  color: #d1d5db;
+}
+
+.history-details strong {
+  color: #e5e7eb;
+}
+
+.finished-products-summary {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #374151;
+}
+
+.finished-products-summary strong {
+  color: #e5e7eb;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.finished-products-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.finished-products-summary li {
+  padding-left: 12px;
+  margin: 4px 0;
+  color: #9ca3af;
+  position: relative;
+}
+
+.finished-products-summary li:before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: #059669;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: #6b7280;
+  font-size: 13px;
+}
