@@ -13,6 +13,8 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
   const [variety, setVariety] = useState('');
   const [inputWeight, setInputWeight] = useState(0);
   const [buckets, setBuckets] = useState<Record<string, number>>({});
+  const [operatorName, setOperatorName] = useState('');
+  const [status, setStatus] = useState<'in_lavorazione' | 'completato'>('in_lavorazione');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -28,16 +30,26 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
     setBuckets(newBuckets);
   };
 
+  const bucketEntries = Object.entries(stageBuckets);
+  const productBuckets = bucketEntries.filter(
+    ([, bucket]) => bucket.direction !== 'scarti' && bucket.direction !== 'muffa'
+  );
+  const scrapBuckets = bucketEntries.filter(
+    ([, bucket]) => bucket.direction === 'scarti' || bucket.direction === 'muffa'
+  );
+
   // Calculate totals
-  const totalOutput = Object.values(buckets).reduce((sum, val) => sum + (val || 0), 0);
+  const totalProduct = productBuckets.reduce((sum, [key]) => sum + (buckets[key] || 0), 0);
+  const totalScrap = scrapBuckets.reduce((sum, [key]) => sum + (buckets[key] || 0), 0);
+  const totalOutput = totalProduct + totalScrap;
   const diff = inputWeight - totalOutput;
   const diffPerc = inputWeight > 0 ? (diff / inputWeight) * 100 : 0;
   const isBalanced = Math.abs(diffPerc) <= 2;
 
   // Handle save
   const handleSave = async () => {
-    if (!lotCode || !variety || inputWeight <= 0) {
-      setMessage('⚠️ Compila tutti i campi obbligatori');
+    if (!lotCode || !variety || inputWeight <= 0 || !operatorName.trim()) {
+      setMessage('⚠️ Compila tutti i campi obbligatori (lotto, varietà, operatore, peso)');
       return;
     }
 
@@ -60,7 +72,9 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
           total_output_kg: totalOutput,
           buckets,
           diff_kg: diff,
-          operator_email: localStorage.getItem('userEmail') || 'unknown',
+          operator_email: localStorage.getItem('userEmail') || operatorName || 'unknown',
+          operator_name: operatorName,
+          status,
         },
       ]);
 
@@ -71,12 +85,32 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
         setMessage('✅ Salvato su Supabase!');
       }
 
+      // Registro operatori locale (audit semplice)
+      const operatorLog = {
+        id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+        stage: stageKey,
+        lot_code: lotCode,
+        variety,
+        operator: operatorName,
+        status,
+        inputWeight,
+        totalProduct,
+        totalScrap,
+        totalOutput,
+        diff,
+        createdAt: new Date().toISOString(),
+      };
+      const prevLogs = JSON.parse(localStorage.getItem('operatorLogs') || '[]');
+      localStorage.setItem('operatorLogs', JSON.stringify([operatorLog, ...prevLogs].slice(0, 100)));
+
       // Reset form
       setTimeout(() => {
         setLotCode('');
         setVariety('');
         setInputWeight(0);
         setBuckets({});
+        setOperatorName('');
+        setStatus('in_lavorazione');
         setMessage('');
       }, 2000);
     } catch (err) {
@@ -95,12 +129,13 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Codice Lotto
+            Codice lotto
           </label>
           <input
             type="text"
             value={lotCode}
             onChange={(e) => setLotCode(e.target.value)}
+            step="0.001"
             className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
             placeholder="es. LOT-001"
           />
@@ -113,19 +148,49 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
             type="text"
             value={variety}
             onChange={(e) => setVariety(e.target.value)}
+            step="0.001"
             className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
             placeholder="es. Amnesia"
           />
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Operatore
+          </label>
+          <input
+            type="text"
+            value={operatorName}
+            onChange={(e) => setOperatorName(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+            placeholder="Nome operatore"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Stato lavorazione
+          </label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as 'in_lavorazione' | 'completato')}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+          >
+            <option value="in_lavorazione">In lavorazione</option>
+            <option value="completato">Completato</option>
+          </select>
+        </div>
+      </div>
+
       {/* Input Weight */}
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-300 mb-2">
-          Peso Ingresso (kg)
+          Peso ingresso (kg)
         </label>
         <input
           type="number"
+          step="0.001"
           value={inputWeight}
           onChange={(e) => setInputWeight(parseFloat(e.target.value) || 0)}
           className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
@@ -143,23 +208,57 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
         </button>
       )}
 
-      {/* Buckets */}
-      {Object.entries(stageBuckets).map(([key, bucket]) => (
-        <div key={key} className="mb-4">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            {bucket.label}
-          </label>
-          <input
-            type="number"
-            value={buckets[key] || 0}
-            onChange={(e) =>
-              setBuckets({ ...buckets, [key]: parseFloat(e.target.value) || 0 })
-            }
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
-            placeholder="0"
-          />
+      {/* Buckets - uscite prodotto */}
+      {productBuckets.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-200 mb-3">
+            Uscite prodotto (grandi/medi/mini/trinciato)
+          </h3>
+          {productBuckets.map(([key, bucket]) => (
+            <div key={key} className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {bucket.label}
+              </label>
+              <input
+                type="number"
+                step="0.001"
+                value={buckets[key] || 0}
+                onChange={(e) =>
+                  setBuckets({ ...buckets, [key]: parseFloat(e.target.value) || 0 })
+                }
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+                placeholder="0.000"
+              />
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {/* Buckets - scarti e muffa */}
+      {scrapBuckets.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-200 mb-3">
+            Scarti e non conformità
+          </h3>
+          {scrapBuckets.map(([key, bucket]) => (
+            <div key={key} className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {bucket.label}
+              </label>
+              <input
+                type="number"
+                step="0.001"
+                value={buckets[key] || 0}
+                onChange={(e) =>
+                  setBuckets({ ...buckets, [key]: parseFloat(e.target.value) || 0 })
+                }
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded text-white text-sm"
+                placeholder="0.000"
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Balance Info */}
       {inputWeight > 0 && (
@@ -169,6 +268,10 @@ export const StageProcessingForm = ({ stageKey }: StageProcessingFormProps) => {
           </p>
           <p className="text-sm text-gray-300">
             Uscita: <strong>{totalOutput.toFixed(2)} kg</strong>
+          </p>
+          <p className="text-sm text-gray-300">
+            Prodotti: <strong>{totalProduct.toFixed(2)} kg</strong> · Scarti/muffa:{' '}
+            <strong>{totalScrap.toFixed(2)} kg</strong>
           </p>
           <p className={`text-sm font-bold ${isBalanced ? 'text-green-400' : 'text-red-400'}`}>
             Differenza: {diff.toFixed(2)} kg ({diffPerc.toFixed(1)}%)
