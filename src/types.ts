@@ -3,14 +3,12 @@ export type ProductCategory = 'grandi' | 'medi' | 'mini' | 'trinciato' | 'biomas
 export type QualityGrade = 'A' | 'B' | 'C';
 export type ProcessingStatus = 'Completato' | 'In lavorazione';
 
-// Scrap details - separate tracking for waste materials
 export interface ScrapDetails {
-  biomassa?: number;  // Biomass waste (kg)
-  muffa?: number;     // Mould waste (kg)
-  rami?: number;      // Wood/branch waste (kg)
+  biomassa?: number;
+  muffa?: number;
+  rami?: number;
 }
 
-// Category weight tracking
 export interface CategoryWeight {
   grandi?: number;
   medi?: number;
@@ -20,7 +18,6 @@ export interface CategoryWeight {
   muffa?: number;
 }
 
-// Lot - incoming material batch
 export interface Lot {
   id: string;
   code: string;
@@ -31,7 +28,6 @@ export interface Lot {
   categoryWeights?: CategoryWeight;
 }
 
-// Input for creating a new batch in a processing stage
 export interface StageBatchInput {
   stageKey: string;
   lotCode: string;
@@ -39,18 +35,17 @@ export interface StageBatchInput {
   inputWeight: number;
   outputWeight: number;
   scrapWeight: number;
-  scrapDetails: ScrapDetails;  // NEW: separated scrap subcategories
+  scrapDetails: ScrapDetails;
   residualWeight: number;
   buckets: { [key: string]: number };
   categoryWeights?: CategoryWeight;
-  qualityGrade?: QualityGrade;  // NEW: A/B/C quality
-  status: ProcessingStatus;      // NEW: Completato or In lavorazione
-  operatorName: string;          // NEW: operator tracking
-  operatorEmail: string;         // NEW: operator email for audit
+  qualityGrade?: QualityGrade;
+  status: ProcessingStatus;
+  operatorName: string;
+  operatorEmail: string;
   notes?: string;
 }
 
-// Batch - processed output
 export interface StageBatch {
   id: string;
   stageKey: string;
@@ -59,20 +54,19 @@ export interface StageBatch {
   inputWeight: number;
   outputWeight: number;
   scrapWeight: number;
-  scrapDetails: ScrapDetails;    // NEW: separated scrap subcategories
+  scrapDetails: ScrapDetails;
   residualWeight: number;
   totalOutput: number;
   buckets: { [key: string]: number };
   categoryWeights?: CategoryWeight;
-  qualityGrade?: QualityGrade;   // NEW: quality marking
-  status: ProcessingStatus;       // NEW: status state
-  operatorName: string;           // NEW: who processed
-  operatorEmail: string;          // NEW: operator audit
+  qualityGrade?: QualityGrade;
+  status: ProcessingStatus;
+  operatorName: string;
+  operatorEmail: string;
   date: string;
   notes?: string;
 }
 
-// Sub-lot - individual product subdivision
 export interface SubLot {
   id: string;
   parentLotId: string;
@@ -83,7 +77,6 @@ export interface SubLot {
   status: 'active' | 'finished' | 'scrap';
 }
 
-// New sub-lot creation input
 export interface NewSubLotInput {
   parentLotId: string;
   code: string;
@@ -91,7 +84,6 @@ export interface NewSubLotInput {
   weight: number;
 }
 
-// Processing run - database record
 export interface ProcessingRun {
   id: string;
   created_at: string;
@@ -101,22 +93,21 @@ export interface ProcessingRun {
   input_weight_kg: number;
   output_weight_kg: number;
   scrap_weight_kg: number;
-  scrap_biomassa_kg?: number;   // NEW: biomass scrap detail
-  scrap_muffa_kg?: number;       // NEW: mould scrap detail
-  scrap_rami_kg?: number;        // NEW: wood scrap detail
+  scrap_biomassa_kg?: number;
+  scrap_muffa_kg?: number;
+  scrap_rami_kg?: number;
   residual_weight_kg: number;
   total_output_kg: number;
   buckets: Record<string, number>;
   category_weights?: Record<string, number>;
-  quality_grade?: QualityGrade;  // NEW: quality
-  status: ProcessingStatus;       // NEW: processing status
-  operator_name: string;          // NEW: operator name
-  operator_email: string;         // NEW: operator email
+  quality_grade?: QualityGrade;
+  status: ProcessingStatus;
+  operator_name: string;
+  operator_email: string;
   diff_kg: number;
   notes?: string;
 }
 
-// Material movement - transfer between stages
 export interface MovementInput {
   fromStage: string;
   toStage: string;
@@ -141,7 +132,6 @@ export interface Movement {
   notes?: string;
 }
 
-// Finished product
 export interface FinishedProduct {
   id: string;
   name: string;
@@ -149,17 +139,30 @@ export interface FinishedProduct {
   baseWeight: number;
 }
 
-// Auth context
 export interface User {
   id: string;
   email: string;
   name?: string;
 }
 
-// Utility: category availability
 export interface CategoryAvailability {
   category: ProductCategory;
   available: number;
   processed: number;
   pending: number;
 }
+
+export interface Company {
+  id: string;
+  name: string;
+  role: 'supplier' | 'customer';
+}
+
+export interface Variety {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface Company { id: string; name: string; role: 'supplier' | 'customer'; }
+export interface Variety { id: string; name: string; description?: string; }
