@@ -1,344 +1,274 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
+import { GestionaleContext } from '../context/GestionaleContext';
+import { AuthContext } from '../lib/auth';
+import type { StageBatchInput, ScrapDetails } from '../types';
+import { supabase } from '../lib/supabase';
 
-interface FinishedProduct {
-  id: string;
-  code: string;
-  name: string;
-  format_grams: number;
-}
+export const FinishingProcessing: React.FC = () => {
+  const { addStageBatch } = useContext(GestionaleContext);
+  const { user } = useContext(AuthContext);
+  
+  const [form, setForm] = useState({
+    lotCode: '',
+    variety: '',
+    inputWeight: '',
+    outputWeight: '',
+    scrapWeight: '',
+    scrapBiomass: '',
+    scrapMould: '',
+    scrapWood: '',
+    residualWeight: '',
+    qualityGrade: '',
+    status: 'Completato' as 'Completato' | 'In lavorazione',
+    operatorName: '',
+    operatorEmail: user?.email || '',
+    notes: '',
+  });
 
-interface ProcessingRecord {
-  id: string;
-  batch_code: string;
-  scrap_weight: number;
-  residual_weight: number;
-  finished_products: FinishedProductRecord[];
-  notes: string;
-  timestamp: string;
-}
+  const [distribution, setDistribution] = useState({
+    grandi: '',
+    medi: '',
+    mini: '',
+    trinciato: '',
+  });
 
-interface FinishedProductRecord {
-  product_id: string;
-  product_name: string;
-  quantity: number;
-  total_weight: number;
-}
-
-const FinishingProcessing: React.FC = () => {
-  // Mock data - in produzione verrà da Supabase
-  const mockBatchesFromBeta = [
-    { id: '1', code: 'BETA-001', weight_after_beta: 850, source_batch: 'GREZZO-001' },
-    { id: '2', code: 'BETA-002', weight_after_beta: 620, source_batch: 'GREZZO-002' },
-    { id: '3', code: 'BETA-003', weight_after_beta: 1200, source_batch: 'GREZZO-003' },
-  ];
-
-  const mockFinishedProducts: FinishedProduct[] = [
-    { id: 'fp-1', code: 'FP-005G', name: 'Fiore 5g', format_grams: 5 },
-    { id: 'fp-2', code: 'FP-010G', name: 'Fiore 10g', format_grams: 10 },
-    { id: 'fp-3', code: 'FP-025G', name: 'Fiore 25g', format_grams: 25 },
-    { id: 'fp-4', code: 'FP-100G', name: 'Fiore 100g', format_grams: 100 },
-    { id: 'fp-5', code: 'TRIM-100G', name: 'Trim 100g', format_grams: 100 },
-  ];
-
-  // State per il form
-  const [selectedBatch, setSelectedBatch] = useState<string>('');
-  const [scrapWeight, setScrapWeight] = useState<string>('');
-  const [residualWeight, setResidualWeight] = useState<string>('');
-  const [finishedProducts, setFinishedProducts] = useState<FinishedProductRecord[]>([]);
-  const [currentProductId, setCurrentProductId] = useState<string>('');
-  const [currentQuantity, setCurrentQuantity] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-
-  // Storico processing
-  const [processingHistory, setProcessingHistory] = useState<ProcessingRecord[]>([]);
-
-  // Calcoli utili
-  const selectedBatchData = mockBatchesFromBeta.find(b => b.id === selectedBatch);
-  const totalScrap = parseFloat(scrapWeight) || 0;
-  const totalResidual = parseFloat(residualWeight) || 0;
-  const totalFinishedWeight = finishedProducts.reduce((sum, fp) => sum + fp.total_weight, 0);
-  const totalWeightUsed = totalScrap + totalResidual + totalFinishedWeight;
-  const availableWeight = selectedBatchData ? selectedBatchData.weight_after_beta : 0;
-  const weightBalance = availableWeight - totalWeightUsed;
-
-  // Aggiungi prodotto finito
-  const handleAddFinishedProduct = () => {
-    if (!currentProductId || !currentQuantity) return;
-    
-    const product = mockFinishedProducts.find(p => p.id === currentProductId);
-    if (!product) return;
-
-    const totalWeight = parseInt(currentQuantity) * product.format_grams;
-
-    const newProduct: FinishedProductRecord = {
-      product_id: currentProductId,
-      product_name: product.name,
-      quantity: parseInt(currentQuantity),
-      total_weight: totalWeight,
-    };
-
-    setFinishedProducts([...finishedProducts, newProduct]);
-    setCurrentProductId('');
-    setCurrentQuantity('');
+  const handleFormChange = (field: string, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Rimuovi prodotto finito
-  const handleRemoveFinishedProduct = (index: number) => {
-    setFinishedProducts(finishedProducts.filter((_, i) => i !== index));
+  const handleDistributionChange = (cat: string, value: string) => {
+    setDistribution(prev => ({ ...prev, [cat]: value }));
   };
 
-  // Completa elaborazione
-  const handleCompleteProcessing = () => {
-    if (!selectedBatch || weightBalance < 0) {
-      alert('Controlla i dati: batch selezionato e bilancia dei pesi devono essere corretti');
+  const validateAndSave = async () => {
+    const input = parseFloat(form.inputWeight);
+    const output = parseFloat(form.outputWeight);
+    const scrap = parseFloat(form.scrapWeight);
+    const residual = parseFloat(form.residualWeight);
+
+    const expected = output + scrap + residual;
+    const diff = Math.abs(expected - input);
+    const tolerance = input * 0.02;
+
+    if (diff > tolerance) {
+      alert(`⚠️ Weight mismatch!\nInput: ${input}kg\nExpected: ${expected}kg`);
       return;
     }
 
-    const record: ProcessingRecord = {
-      id: `RIF-${Date.now()}`,
-      batch_code: selectedBatchData?.code || '',
-      scrap_weight: totalScrap,
-      residual_weight: totalResidual,
-      finished_products: finishedProducts,
-      notes: notes,
-      timestamp: new Date().toLocaleString('it-IT'),
+    const biomass = parseFloat(form.scrapBiomass) || 0;
+    const mould = parseFloat(form.scrapMould) || 0;
+    const wood = parseFloat(form.scrapWood) || 0;
+    const scrapSum = biomass + mould + wood;
+
+    if (Math.abs(scrapSum - scrap) > 0.1) {
+      alert(`⚠️ Scrap mismatch! Sum: ${scrapSum}kg, Total: ${scrap}kg`);
+      return;
+    }
+
+    const grandi = parseFloat(distribution.grandi) || 0;
+    const medi = parseFloat(distribution.medi) || 0;
+    const mini = parseFloat(distribution.mini) || 0;
+    const trinciato = parseFloat(distribution.trinciato) || 0;
+    const distSum = grandi + medi + mini + trinciato;
+
+    if (Math.abs(distSum - output) > 0.1) {
+      alert(`⚠️ Distribution mismatch! Total: ${distSum}kg, Expected: ${output}kg`);
+      return;
+    }
+
+    const scrapDetails: ScrapDetails = {
+      biomassa: biomass || undefined,
+      muffa: mould || undefined,
+      rami: wood || undefined,
     };
 
-    setProcessingHistory([record, ...processingHistory]);
+    const batch: StageBatchInput = {
+      stageKey: 'rifinitura',
+      lotCode: form.lotCode,
+      variety: form.variety,
+      inputWeight: input,
+      outputWeight: output,
+      scrapWeight: scrap,
+      scrapDetails,
+      residualWeight: residual,
+      buckets: { grandi, medi, mini, trinciato },
+      qualityGrade: (form.qualityGrade as 'A' | 'B' | 'C' | undefined),
+      status: form.status,
+      operatorName: form.operatorName || user?.email || 'Unknown',
+      operatorEmail: form.operatorEmail,
+      notes: form.notes,
+    };
 
-    // Reset form
-    setSelectedBatch('');
-    setScrapWeight('');
-    setResidualWeight('');
-    setFinishedProducts([]);
-    setNotes('');
+    try {
+      await addStageBatch(batch);
+
+      const { error } = await supabase.from('processing_runs').insert([
+        {
+          stage: 'rifinitura',
+          lot_code: form.lotCode,
+          variety: form.variety,
+          input_weight_kg: input,
+          output_weight_kg: output,
+          scrap_weight_kg: scrap,
+          scrap_biomassa_kg: biomass,
+          scrap_muffa_kg: mould,
+          scrap_rami_kg: wood,
+          residual_weight_kg: residual,
+          total_output_kg: output,
+          buckets: { grandi, medi, mini, trinciato },
+          quality_grade: form.qualityGrade || null,
+          status: form.status,
+          operator_name: form.operatorName,
+          operator_email: form.operatorEmail,
+          diff_kg: 0,
+          notes: form.notes,
+        },
+      ]);
+
+      if (error) throw error;
+
+      alert('✅ Batch saved!');
+      setForm({
+        lotCode: '',
+        variety: '',
+        inputWeight: '',
+        outputWeight: '',
+        scrapWeight: '',
+        scrapBiomass: '',
+        scrapMould: '',
+        scrapWood: '',
+        residualWeight: '',
+        qualityGrade: '',
+        status: 'Completato',
+        operatorName: '',
+        operatorEmail: user?.email || '',
+        notes: '',
+      });
+      setDistribution({ grandi: '', medi: '', mini: '', trinciato: '' });
+    } catch (err) {
+      console.error('Error:', err);
+      alert('❌ Error saving batch');
+    }
   };
 
   return (
-    <div className="finishing-container">
-      <h2>Sala Rifinitura / Confezionamento</h2>
+    <div className="p-6 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6">Sala Rifinitura (Final Processing)</h2>
 
-      <div className="finishing-grid">
-        {/* Sezione Sinistra: Registrazione Rifinitura */}
-        <div className="finishing-form-section">
-          <h3>Registra Rifinitura</h3>
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <input
+          type="text"
+          placeholder="Lot Code"
+          value={form.lotCode}
+          onChange={(e) => handleFormChange('lotCode', e.target.value)}
+          className="px-3 py-2 border rounded bg-gray-900 text-white"
+        />
+        <input
+          type="text"
+          placeholder="Variety"
+          value={form.variety}
+          onChange={(e) => handleFormChange('variety', e.target.value)}
+          className="px-3 py-2 border rounded bg-gray-900 text-white"
+        />
+      </div>
 
-          {/* Selezione Batch da Beta */}
-          <div className="form-group">
-            <label htmlFor="batch-select">
-              Lotto da Beta
-              <span className="required">*</span>
-            </label>
-            <select
-              id="batch-select"
-              value={selectedBatch}
-              onChange={(e) => setSelectedBatch(e.target.value)}
-              className="form-select"
-            >
-              <option value="">-- Seleziona --</option>
-              {mockBatchesFromBeta.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  {batch.code} ({batch.weight_after_beta}g)
-                </option>
-              ))}
-            </select>
+      <div className="bg-gray-800 p-4 rounded mb-6">
+        <h3 className="text-lg font-bold mb-4">📊 Weights (kg)</h3>
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs font-medium mb-1">Input</label>
+            <input type="number" step="0.001" value={form.inputWeight} onChange={(e) => handleFormChange('inputWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
           </div>
-
-          {selectedBatchData && (
-            <div className="batch-info-box">
-              <p>
-                <strong>Peso disponibile:</strong> {selectedBatchData.weight_after_beta}g
-              </p>
-              <p>
-                <strong>Origine:</strong> {selectedBatchData.source_batch}
-              </p>
-            </div>
-          )}
-
-          {/* Pesi Scarto e Residuo */}
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="scrap">Scarto Rifinitura (g)</label>
-              <input
-                id="scrap"
-                type="number"
-                min="0"
-                value={scrapWeight}
-                onChange={(e) => setScrapWeight(e.target.value)}
-                className="form-input"
-                placeholder="0"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="residual">Residuo Non Lavorato (g)</label>
-              <input
-                id="residual"
-                type="number"
-                min="0"
-                value={residualWeight}
-                onChange={(e) => setResidualWeight(e.target.value)}
-                className="form-input"
-                placeholder="0"
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Output</label>
+            <input type="number" step="0.001" value={form.outputWeight} onChange={(e) => handleFormChange('outputWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
           </div>
-
-          {/* Prodotti Finiti */}
-          <div className="form-group">
-            <h4>Prodotti Finiti</h4>
-
-            <div className="form-row">
-              <div className="form-group flex-1">
-                <label htmlFor="product-select">Prodotto</label>
-                <select
-                  id="product-select"
-                  value={currentProductId}
-                  onChange={(e) => setCurrentProductId(e.target.value)}
-                  className="form-select"
-                >
-                  <option value="">-- Seleziona --</option>
-                  {mockFinishedProducts.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name} ({product.format_grams}g)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group flex-0">
-                <label htmlFor="quantity">Quantità (pz)</label>
-                <input
-                  id="quantity"
-                  type="number"
-                  min="0"
-                  value={currentQuantity}
-                  onChange={(e) => setCurrentQuantity(e.target.value)}
-                  className="form-input"
-                  placeholder="0"
-                />
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleAddFinishedProduct}
-              >
-                Aggiungi
-              </button>
-            </div>
-
-            {finishedProducts.length > 0 && (
-              <div className="products-list">
-                {finishedProducts.map((product, index) => (
-                  <div key={index} className="product-item">
-                    <div className="product-info">
-                      <strong>{product.product_name}</strong>
-                      <span className="product-qty">
-                        {product.quantity} pz = {product.total_weight}g
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-delete"
-                      onClick={() => handleRemoveFinishedProduct(index)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div>
+            <label className="block text-xs font-medium mb-1">Scrap</label>
+            <input type="number" step="0.001" value={form.scrapWeight} onChange={(e) => handleFormChange('scrapWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
           </div>
-
-          {/* Note */}
-          <div className="form-group">
-            <label htmlFor="notes">Note</label>
-            <textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="form-textarea"
-              placeholder="Note della rifinitura..."
-              rows={3}
-            />
+          <div>
+            <label className="block text-xs font-medium mb-1">Residual</label>
+            <input type="number" step="0.001" value={form.residualWeight} onChange={(e) => handleFormChange('residualWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
           </div>
-
-          {/* Bilancia Pesi */}
-          <div className={`weight-balance ${weightBalance === 0 ? 'balanced' : weightBalance > 0 ? 'surplus' : 'deficit'}`}>
-            <p>
-              <strong>Scarto:</strong> {totalScrap}g | <strong>Residuo:</strong> {totalResidual}g | <strong>Finito:</strong> {totalFinishedWeight}g
-            </p>
-            <p>
-              <strong>Peso Totale Usato:</strong> {totalWeightUsed}g / {availableWeight}g
-            </p>
-            <p className="balance-indicator">
-              {weightBalance > 0 ? `Differenza: +${weightBalance}g (surplus)` : weightBalance < 0 ? `Differenza: ${weightBalance}g (deficit)` : 'Bilancia perfetta ✓'}
-            </p>
-          </div>
-
-          {/* Pulsante Salva */}
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleCompleteProcessing}
-            disabled={!selectedBatch}
-          >
-            Completa Elaborazione Rifinitura
-          </button>
-        </div>
-
-        {/* Sezione Destra: Storico Elaborazioni */}
-        <div className="finishing-history-section">
-          <h3>Storico Elaborazioni</h3>
-
-          {processingHistory.length === 0 ? (
-            <p className="empty-state">Nessuna elaborazione registrata</p>
-          ) : (
-            <div className="history-list">
-              {processingHistory.map((record) => (
-                <div key={record.id} className="history-item">
-                  <div className="history-header">
-                    <strong>{record.batch_code}</strong>
-                    <span className="history-id">{record.id}</span>
-                  </div>
-
-                  <div className="history-details">
-                    <p>
-                      <strong>Data:</strong> {record.timestamp}
-                    </p>
-                    <p>
-                      <strong>Scarto:</strong> {record.scrap_weight}g
-                    </p>
-                    <p>
-                      <strong>Residuo:</strong> {record.residual_weight}g
-                    </p>
-
-                    {record.finished_products.length > 0 && (
-                      <div className="finished-products-summary">
-                        <strong>Prodotti Finiti:</strong>
-                        <ul>
-                          {record.finished_products.map((product, idx) => (
-                            <li key={idx}>
-                              {product.product_name}: {product.quantity} pz ({product.total_weight}g)
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {record.notes && (
-                      <p>
-                        <strong>Note:</strong> {record.notes}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
+
+      <div className="bg-gray-800 p-4 rounded mb-6">
+        <h3 className="text-lg font-bold mb-4">♻️ Scrap Details (kg)</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Biomassa</label>
+            <input type="number" step="0.001" value={form.scrapBiomass} onChange={(e) => handleFormChange('scrapBiomass', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Muffa</label>
+            <input type="number" step="0.001" value={form.scrapMould} onChange={(e) => handleFormChange('scrapMould', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Rami</label>
+            <input type="number" step="0.001" value={form.scrapWood} onChange={(e) => handleFormChange('scrapWood', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-800 p-4 rounded mb-6">
+        <h3 className="text-lg font-bold mb-4">📦 Category Distribution (kg)</h3>
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Grandi</label>
+            <input type="number" step="0.001" value={distribution.grandi} onChange={(e) => handleDistributionChange('grandi', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Medi</label>
+            <input type="number" step="0.001" value={distribution.medi} onChange={(e) => handleDistributionChange('medi', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Mini</label>
+            <input type="number" step="0.001" value={distribution.mini} onChange={(e) => handleDistributionChange('mini', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Trinciato</label>
+            <input type="number" step="0.001" value={distribution.trinciato} onChange={(e) => handleDistributionChange('trinciato', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium mb-1">Quality Grade (A/B/C)</label>
+          <select value={form.qualityGrade} onChange={(e) => handleFormChange('qualityGrade', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white">
+            <option value="">-- None --</option>
+            <option value="A">A (Excellent)</option>
+            <option value="B">B (Good)</option>
+            <option value="C">C (Standard)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Status</label>
+          <select value={form.status} onChange={(e) => handleFormChange('status', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white">
+            <option value="Completato">✅ Completato</option>
+            <option value="In lavorazione">🔄 In lavorazione</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Operator Name</label>
+          <input type="text" value={form.operatorName} onChange={(e) => handleFormChange('operatorName', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" placeholder="Name" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Operator Email</label>
+          <input type="email" value={form.operatorEmail} onChange={(e) => handleFormChange('operatorEmail', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" placeholder="Email" />
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-1">Notes</label>
+        <textarea value={form.notes} onChange={(e) => handleFormChange('notes', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" placeholder="Optional notes..." rows={3} />
+      </div>
+
+      <button onClick={validateAndSave} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded">
+        💾 Save Batch
+      </button>
     </div>
   );
 };

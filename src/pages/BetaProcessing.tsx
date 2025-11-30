@@ -1,80 +1,257 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
+import { GestionaleContext } from '../context/GestionaleContext';
+import { AuthContext } from '../lib/auth';
+import type { StageBatchInput, ScrapDetails } from '../types';
+import { supabase } from '../lib/supabase';
 
-interface SubBatch {
-  id: string;
-  code: string;
-  weight_in: number;
-}
+export const BetaProcessing: React.FC = () => {
+  const { addStageBatch } = useContext(GestionaleContext);
+  const { user } = useContext(AuthContext);
+  
+  const [form, setForm] = useState({
+    lotCode: '',
+    variety: '',
+    inputWeight: '',
+    outputWeight: '',
+    scrapWeight: '',
+    scrapBiomass: '',
+    scrapMould: '',
+    scrapWood: '',
+    residualWeight: '',
+    qualityGrade: '',
+    status: 'Completato' as 'Completato' | 'In lavorazione',
+    operatorName: '',
+    operatorEmail: user?.email || '',
+    notes: '',
+  });
 
-const BetaProcessing: React.FC = () => {
-  // Mock sottolotti provenienti da Sbocciolo
-  const mockSubbatches: SubBatch[] = [
-    { id: 'SB-1', code: 'SB-001', weight_in: 850 },
-    { id: 'SB-2', code: 'SB-002', weight_in: 620 },
-  ];
+  const [distribution, setDistribution] = useState({
+    medi: '',
+    mini: '',
+    trinciato: '',
+  });
 
-  const [selected, setSelected] = useState('');
-  const [processedWeight, setProcessedWeight] = useState('');
-  const [scarto, setScarto] = useState('');
-  const [records, setRecords] = useState<any[]>([]);
+  const handleFormChange = (field: string, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
 
-  const handleProcess = () => {
-    if (!selected || !processedWeight) return;
-    const sb = mockSubbatches.find(s => s.id === selected)!;
-    const rec = {
-      id: `BPR-${Date.now()}`,
-      subbatch: sb.code,
-      processed: parseFloat(processedWeight),
-      scrap: parseFloat(scarto) || 0,
-      date: new Date().toLocaleString('it-IT'),
+  const handleDistributionChange = (cat: string, value: string) => {
+    setDistribution(prev => ({ ...prev, [cat]: value }));
+  };
+
+  const validateAndSave = async () => {
+    const input = parseFloat(form.inputWeight);
+    const output = parseFloat(form.outputWeight);
+    const scrap = parseFloat(form.scrapWeight);
+    const residual = parseFloat(form.residualWeight);
+
+    const expected = output + scrap + residual;
+    const diff = Math.abs(expected - input);
+    const tolerance = input * 0.02;
+
+    if (diff > tolerance) {
+      alert(`⚠️ Weight mismatch!\nInput: ${input}kg\nExpected: ${expected}kg\nDiff: ${diff}kg`);
+      return;
+    }
+
+    const biomass = parseFloat(form.scrapBiomass) || 0;
+    const mould = parseFloat(form.scrapMould) || 0;
+    const wood = parseFloat(form.scrapWood) || 0;
+    const scrapSum = biomass + mould + wood;
+
+    if (Math.abs(scrapSum - scrap) > 0.1) {
+      alert(`⚠️ Scrap details don't match! Sum: ${scrapSum}kg, Total: ${scrap}kg`);
+      return;
+    }
+
+    const medi = parseFloat(distribution.medi) || 0;
+    const mini = parseFloat(distribution.mini) || 0;
+    const trinciato = parseFloat(distribution.trinciato) || 0;
+    const distSum = medi + mini + trinciato;
+
+    if (Math.abs(distSum - output) > 0.1) {
+      alert(`⚠️ Category distribution doesn't match output! Total: ${distSum}kg, Expected: ${output}kg`);
+      return;
+    }
+
+    const scrapDetails: ScrapDetails = {
+      biomassa: biomass || undefined,
+      muffa: mould || undefined,
+      rami: wood || undefined,
     };
-    setRecords([rec, ...records]);
-    setProcessedWeight('');
-    setScarto('');
+
+    const batch: StageBatchInput = {
+      stageKey: 'beta',
+      lotCode: form.lotCode,
+      variety: form.variety,
+      inputWeight: input,
+      outputWeight: output,
+      scrapWeight: scrap,
+      scrapDetails,
+      residualWeight: residual,
+      buckets: { medi, mini, trinciato },
+      qualityGrade: (form.qualityGrade as 'A' | 'B' | 'C' | undefined),
+      status: form.status,
+      operatorName: form.operatorName || user?.email || 'Unknown',
+      operatorEmail: form.operatorEmail,
+      notes: form.notes,
+    };
+
+    try {
+      await addStageBatch(batch);
+
+      await supabase.from('processing_runs').insert([
+        {
+          stage: 'beta',
+          lot_code: form.lotCode,
+          variety: form.variety,
+          input_weight_kg: input,
+          output_weight_kg: output,
+          scrap_weight_kg: scrap,
+          scrap_biomassa_kg: biomass,
+          scrap_muffa_kg: mould,
+          scrap_rami_kg: wood,
+          residual_weight_kg: residual,
+          total_output_kg: output,
+          buckets: { medi, mini, trinciato },
+          quality_grade: form.qualityGrade || null,
+          status: form.status,
+          operator_name: form.operatorName,
+          operator_email: form.operatorEmail,
+          diff_kg: 0,
+          notes: form.notes,
+        },
+      ]);
+
+      alert('✅ Batch saved!');
+      setForm({
+        lotCode: '',
+        variety: '',
+        inputWeight: '',
+        outputWeight: '',
+        scrapWeight: '',
+        scrapBiomass: '',
+        scrapMould: '',
+        scrapWood: '',
+        residualWeight: '',
+        qualityGrade: '',
+        status: 'Completato',
+        operatorName: '',
+        operatorEmail: user?.email || '',
+        notes: '',
+      });
+      setDistribution({ medi: '', mini: '', trinciato: '' });
+    } catch (err) {
+      console.error('Error:', err);
+      alert('❌ Error saving batch');
+    }
   };
 
   return (
-    <div>
-      <h2>Sala Beta</h2>
+    <div className="p-6 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6">Sala Beta / Selezione</h2>
 
-      <div className="form-group">
-        <label>Seleziona sottolotto da Sbocciolo</label>
-        <select className="form-select" value={selected} onChange={e => setSelected(e.target.value)}>
-          <option value="">-- seleziona --</option>
-          {mockSubbatches.map(s => (
-            <option key={s.id} value={s.id}>{s.code} ({s.weight_in} g)</option>
-          ))}
-        </select>
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <input
+          type="text"
+          placeholder="Lot Code"
+          value={form.lotCode}
+          onChange={(e) => handleFormChange('lotCode', e.target.value)}
+          className="px-3 py-2 border rounded bg-gray-900 text-white"
+        />
+        <input
+          type="text"
+          placeholder="Variety"
+          value={form.variety}
+          onChange={(e) => handleFormChange('variety', e.target.value)}
+          className="px-3 py-2 border rounded bg-gray-900 text-white"
+        />
       </div>
 
-      <div className="form-row">
-        <div className="form-group">
-          <label>Peso prodotto (g)</label>
-          <input className="form-input" type="number" value={processedWeight} onChange={e => setProcessedWeight(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <label>Scarto (g)</label>
-          <input className="form-input" type="number" value={scarto} onChange={e => setScarto(e.target.value)} />
-        </div>
-        <div className="form-group">
-          <button className="btn btn-primary" onClick={handleProcess}>Registra</button>
-        </div>
-      </div>
-
-      <section style={{ marginTop: 16 }}>
-        <h3>Registrazioni Beta</h3>
-        {records.length === 0 ? (
-          <p className="empty-state">Nessuna registrazione</p>
-        ) : (
+      <div className="bg-gray-800 p-4 rounded mb-6">
+        <h3 className="text-lg font-bold mb-4">📊 Weights (kg)</h3>
+        <div className="grid grid-cols-4 gap-3">
           <div>
-            {records.map(r => (
-              <div key={r.id} style={{ padding: 10, borderBottom: '1px solid #374151' }}>
-                <strong>{r.subbatch}</strong> — {r.processed} g — scarto {r.scrap} g — {r.date}
-              </div>
-            ))}
+            <label className="block text-xs font-medium mb-1">Input</label>
+            <input type="number" step="0.001" value={form.inputWeight} onChange={(e) => handleFormChange('inputWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
           </div>
-        )}
-      </section>
+          <div>
+            <label className="block text-xs font-medium mb-1">Output</label>
+            <input type="number" step="0.001" value={form.outputWeight} onChange={(e) => handleFormChange('outputWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Scrap</label>
+            <input type="number" step="0.001" value={form.scrapWeight} onChange={(e) => handleFormChange('scrapWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Residual</label>
+            <input type="number" step="0.001" value={form.residualWeight} onChange={(e) => handleFormChange('residualWeight', e.target.value)} className="w-full px-2 py-1 border rounded bg-gray-900 text-white text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-800 p-4 rounded mb-6">
+        <h3 className="text-lg font-bold mb-4">♻️ Scrap Details (kg)</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Biomassa</label>
+            <input type="number" step="0.001" value={form.scrapBiomass} onChange={(e) => handleFormChange('scrapBiomass', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Muffa</label>
+            <input type="number" step="0.001" value={form.scrapMould} onChange={(e) => handleFormChange('scrapMould', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Rami</label>
+            <input type="number" step="0.001" value={form.scrapWood} onChange={(e) => handleFormChange('scrapWood', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-800 p-4 rounded mb-6">
+        <h3 className="text-lg font-bold mb-4">📦 Category Distribution (kg) - Medi/Mini/Trinciato</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Medi</label>
+            <input type="number" step="0.001" value={distribution.medi} onChange={(e) => handleDistributionChange('medi', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Mini</label>
+            <input type="number" step="0.001" value={distribution.mini} onChange={(e) => handleDistributionChange('mini', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Trinciato</label>
+            <input type="number" step="0.001" value={distribution.trinciato} onChange={(e) => handleDistributionChange('trinciato', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium mb-1">Quality Grade</label>
+          <select value={form.qualityGrade} onChange={(e) => handleFormChange('qualityGrade', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white">
+            <option value="">-- None --</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Status</label>
+          <select value={form.status} onChange={(e) => handleFormChange('status', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white">
+            <option value="Completato">Completato</option>
+            <option value="In lavorazione">In lavorazione</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Operator</label>
+          <input type="text" value={form.operatorName} onChange={(e) => handleFormChange('operatorName', e.target.value)} className="w-full px-3 py-2 border rounded bg-gray-900 text-white" placeholder="Name" />
+        </div>
+      </div>
+
+      <button onClick={validateAndSave} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded">
+        💾 Save Batch
+      </button>
     </div>
   );
 };
