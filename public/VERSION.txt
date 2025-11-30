@@ -1,0 +1,27 @@
+GESTIONALE CANAPA - DEPLOYMENT INFO
+====================================
+Commit: d5e01bb
+Description: Full refactor deployment with complete feature set
+Deployed: 2025-11-30
+Features:
+  ✓ Decimals (step 0.001) on all numeric inputs
+  ✓ Scrap details separated (biomassa/muffa/rami)
+  ✓ Operator tracking (name + email in logs)
+  ✓ Status states (Completato/In lavorazione)
+  ✓ Quality grades (A/B/C optional)
+  ✓ Category validation (no promotions in Beta)
+  ✓ Residual calculation panel with suggestions
+  ✓ Material transfers (Trasferisci materiale)
+  ✓ Per-category send (Invia categorie specifiche)
+  ✓ Dashboard: Ultimi movimenti tracking
+  ✓ Full Supabase integration with RLS
+
+Branches:
+  Production: main (auto-deploy from Vercel)
+  
+Testing URL:
+  https://gestionalecanapa.vercel.app
+
+Local Dev:
+  cd /Applications/GESTIONALE/hemp-gestion-processor
+  npm run dev → http://localhost:5174
